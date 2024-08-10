@@ -40,15 +40,19 @@ if uploaded_files:
     def answer_question(question, documents):
         responses = []
         for doc in documents:
-            # Use Google Gemini to generate an answer for each chunk
-            response = genai.generate_text(
-                model="models/text-bison-001",
-                prompt=f"Context: {doc}\nQuestion: {question}"
-            )
-            responses.append(response.result)
-        
-        # Combine all the responses
-        full_response = " ".join(responses)
+            try:
+                # Use Google Gemini to generate an answer for each chunk
+                response = genai.generate_text(
+                    model="models/text-bison-001",
+                    prompt=f"Context: {doc}\nQuestion: {question}"
+                )
+                responses.append(response.result)
+            except Exception as e:
+                st.error(f"Error generating response for a chunk: {e}")
+                responses.append("[Error in generating response]")
+
+        # Combine all the responses safely
+        full_response = " ".join([resp for resp in responses if resp])  # Avoid joining empty strings or errors
         return full_response
 
     if st.button("Get Answer"):
