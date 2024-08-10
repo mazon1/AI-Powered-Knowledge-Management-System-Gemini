@@ -11,36 +11,45 @@ genai.configure(api_key=GOOGLE_API_KEY)
 st.title("AI-Powered Knowledge Management System")
 st.write("Upload PDF documents containing practitioner knowledge and ask tailored questions.")
 
-# Process PDFs
-def extract_text_from_pdf(file):
+# Function to split PDF into smaller chunks
+def split_pdf(file, max_pages=10):
     pdf_reader = PyPDF2.PdfReader(file)
-    text = ""
-    for page in range(len(pdf_reader.pages)):
-        text += pdf_reader.pages[page].extract_text()
-    return text
+    chunks = []
+    for i in range(0, len(pdf_reader.pages), max_pages):
+        text = ""
+        for page in range(i, min(i + max_pages, len(pdf_reader.pages))):
+            text += pdf_reader.pages[page].extract_text()
+        chunks.append(text)
+    return chunks
 
 # Upload PDF
 uploaded_files = st.file_uploader("Choose PDF files", type="pdf", accept_multiple_files=True)
 
 if uploaded_files:
-    documents = [extract_text_from_pdf(file) for file in uploaded_files]
+    documents = []
+    for file in uploaded_files:
+        chunks = split_pdf(file)  # Split the PDF into smaller chunks
+        documents.extend(chunks)  # Add each chunk to the documents list
+
     st.write("Extracted text from the uploaded PDFs.")
-    
+
     # Input question from the researcher
     question = st.text_input("Enter your question:")
 
     # Function to process question and retrieve answer using Google Gemini
     def answer_question(question, documents):
-        # Combine documents into a single context (this can be adjusted to improve results)
-        context = " ".join(documents)
-
-        # Use Google Gemini to generate an answer
-        response = genai.generate_text(
-            model="models/text-bison-001",
-            prompt=f"Context: {context}\nQuestion: {question}"
-        )
-
-        return response.result
+        responses = []
+        for doc in documents:
+            # Use Google Gemini to generate an answer for each chunk
+            response = genai.generate_text(
+                model="models/text-bison-001",
+                prompt=f"Context: {doc}\nQuestion: {question}"
+            )
+            responses.append(response.result)
+        
+        # Combine all the responses
+        full_response = " ".join(responses)
+        return full_response
 
     if st.button("Get Answer"):
         if question and documents:
